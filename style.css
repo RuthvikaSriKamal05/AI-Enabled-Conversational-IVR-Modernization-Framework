@@ -1,0 +1,87 @@
+body {
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(135deg, #1c1069, #111);
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+/* Phone Container */
+.phone-container {
+    background: #2a2a2a;
+    width: 340px;
+    padding: 20px;
+    border-radius: 30px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+}
+
+/* Screen */
+.phone-screen {
+    background: black;
+    height: 200px;
+    overflow-y: auto;
+    border-radius: 15px;
+    padding: 15px;
+    color: #00ff88;
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+/* Messages */
+.system-msg {
+    color: #00ff88;
+}
+
+.user-msg {
+    color: #ffffff;
+}
+
+/* Keypad */
+.keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.key {
+    padding: 18px;
+    font-size: 18px;
+    border-radius: 50%;
+    border: none;
+    background: #444;
+    color: white;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.key:hover {
+    background: #666;
+}
+
+/* Control Buttons */
+.controls {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.call-btn {
+    background: #28a745;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+    margin-right: 10px;
+}
+
+.hangup-btn {
+    background: #dc3545;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+}
