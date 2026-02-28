@@ -1,26 +1,28 @@
 const API_URL = "http://localhost:8000";
 
-// Keeping track of the call state so we don't try to press buttons while hung up
 let sessionId = null;
 let currentMenu = null;
 let callActive = false;
+let isInputMode = false;
+let inputBuffer = "";
 
 const display = document.getElementById("display");
 
-// Just a quick way to shove text onto the screen and keep it scrolled down
+// Display messages
 function addMessage(text, type = "system") {
     const p = document.createElement("p");
-    p.textContent = text;
+    p.innerHTML = text.replace(/\n/g, "<br>");
     p.className = type === "system" ? "system-msg" : "user-msg";
     display.appendChild(p);
-    
-    // Auto-scroll so the user doesn't have to manually chase the convo
     display.scrollTop = display.scrollHeight;
 }
 
-// Dialing in
+// =======================
+// START CALL
+// =======================
 document.getElementById("startCall").addEventListener("click", async () => {
-    if (callActive) return; // Don't start a second call if one is already going
+
+    if (callActive) return;
 
     try {
         const response = await fetch(`${API_URL}/ivr/start`, {
@@ -31,55 +33,125 @@ document.getElementById("startCall").addEventListener("click", async () => {
 
         const data = await response.json();
 
-        // Save the session details we get back from the server
         sessionId = data.session_id;
         currentMenu = data.menu;
         callActive = true;
 
         addMessage("📞 Call Started");
         addMessage(data.prompt);
+
     } catch (err) {
-        addMessage("⚠️ Server isn't responding. Is the backend running?");
+        addMessage("⚠️ Backend not running.");
     }
 });
 
-// Keypad logic
-document.querySelectorAll(".key").forEach(button => {
-    button.addEventListener("click", async function () {
-        if (!callActive) return; // Ignore clicks if there's no active call
 
-        const digit = this.getAttribute("data-digit");
-        addMessage(`You pressed: ${digit}`, "user");
+// =======================
+// SEND TO BACKEND
+// =======================
+async function sendToBackend(value) {
 
-        // Tell the server which button was pressed and wait for the "voice" response
+    try {
         const response = await fetch(`${API_URL}/ivr/input`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 session_id: sessionId,
-                digit: digit,
-                current_menu: currentMenu
+                digit: value
             })
         });
 
         const data = await response.json();
 
-        // If the server says "hangup", kill the session. Otherwise, update the menu prompt.
+        console.log(data);
+
+        if (data.error) {
+            addMessage(data.error);
+            return;
+        }
+
+        // Only end call if backend says so
         if (data.action === "hangup") {
             addMessage(data.message);
             endCall();
+            return;
+        }
+
+        currentMenu = data.menu;
+
+        // Detect input states
+        if (["pnr", "cancel", "schedule",
+             "availability_train",
+             "availability_date",
+             "general_date"].includes(currentMenu)) {
+
+            isInputMode = true;
+            inputBuffer = "";
+
         } else {
-            currentMenu = data.menu;
-            addMessage(data.prompt);
+            isInputMode = false;
+        }
+
+        addMessage(data.prompt);
+
+    } catch (error) {
+        addMessage("⚠️ Server error.");
+        console.error(error);
+    }
+}
+
+
+// =======================
+// KEYPAD LOGIC
+// =======================
+document.querySelectorAll(".key").forEach(button => {
+
+    button.addEventListener("click", function () {
+
+        if (!callActive) return;
+
+        const digit = this.getAttribute("data-digit");
+
+        addMessage(`You pressed: ${digit}`, "user");
+
+        // If in input mode → buffer digits
+        if (isInputMode) {
+
+            inputBuffer += digit;
+            addMessage("Entered: " + inputBuffer);
+
+        } else {
+
+            // Normal navigation
+            sendToBackend(digit);
         }
     });
 });
 
-// Clean up variables so we can start fresh on the next call
+
+// =======================
+// SUBMIT BUTTON (IMPORTANT)
+// =======================
+document.getElementById("submitInput").addEventListener("click", function () {
+
+    if (!callActive || !isInputMode || inputBuffer === "") return;
+
+    sendToBackend(inputBuffer);
+
+    inputBuffer = "";
+    isInputMode = false;
+});
+
+
+// =======================
+// HANGUP
+// =======================
 function endCall() {
     callActive = false;
     sessionId = null;
     currentMenu = null;
+    isInputMode = false;
+    inputBuffer = "";
     addMessage("--- Call Ended ---");
 }
 
