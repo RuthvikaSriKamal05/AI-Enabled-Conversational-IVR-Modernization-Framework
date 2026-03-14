@@ -2,8 +2,46 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import random
+from datetime import datetime, timedelta
+import speech_recognition as sr
+import speech_recognition as sr
+print(sr.Microphone.list_microphone_names())
+def listen_voice():
 
+    recognizer = sr.Recognizer()
+
+    with sr.Microphone() as source:
+
+        print("🎤 Adjusting for background noise...")
+        recognizer.adjust_for_ambient_noise(source, duration=1)
+
+        print("🎤 Speak now...")
+
+        try:
+            audio = recognizer.listen(source, timeout=5, phrase_time_limit=4)
+        except:
+            print("No speech detected")
+            return ""
+
+    try:
+        text = recognizer.recognize_google(audio)
+        print("You said:", text)
+        return text.lower()
+
+    except sr.UnknownValueError:
+        print("❌ Could not understand voice")
+        return ""
+
+    except sr.RequestError:
+        print("❌ Speech service error")
+        return ""
 app = FastAPI()
+@app.get("/")
+def home():
+    return {
+        "project": "AI Based IRCTC IVR System",
+        "status": "Running"
+    }
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,56 +68,54 @@ class InputRequest(BaseModel):
 
 
 # -------------------------
-# MENU STRUCTURE
+# INTENT DETECTION
+# -------------------------
+def detect_intent(digit):
+    intent_map = {
+        "1": "book_ticket",
+        "2": "pnr_status",
+        "3": "cancel_ticket",
+        "4": "train_schedule",
+        "5": "seat_availability",
+        "9": "agent"
+    }
+    return intent_map.get(digit)
+
+
+# -------------------------
+# MOCK TRAIN API
+# -------------------------
+def get_available_trains(source, destination, date):
+    return [
+        "1 - 12627 Karnataka Express",
+        "2 - 12760 Charminar Express",
+        "3 - 12841 Coromandel Express"
+    ]
+
+
+# -------------------------
+# MENUS
 # -------------------------
 MENUS = {
 
-    "main": {
-        "prompt": (
-            "Welcome to IRCTC IVR System.\n"
-            "Press 1 for Ticket Booking.\n"
-            "Press 2 for PNR Status.\n"
-            "Press 3 to Cancel Ticket.\n"
-            "Press 4 for Train Schedule.\n"
-            "Press 5 to Check Seat Availability.\n"
-            "Press 9 to Talk to Customer Care."
-        ),
-        "options": {
-            "1": "booking",
-            "2": "pnr",
-            "3": "cancel",
-            "4": "schedule",
-            "5": "availability_train",
-            "9": "agent"
-        }
-    },
+    "main": (
+        "Welcome to IRCTC IVR System.\n"
+        "Press 1 for Ticket Booking.\n"
+        "Press 2 for PNR Status.\n"
+        "Press 3 to Cancel Ticket.\n"
+        "Press 4 for Train Schedule.\n"
+        "Press 5 to Check Seat Availability.\n"
+        "Press 9 to Talk to Customer Care."
+    ),
 
-    "booking": {
-        "prompt": (
-            "Ticket Booking Menu.\n"
-            "Press 1 for General Ticket.\n"
-            "Press 2 for Tatkal Ticket.\n"
-            "Press 0 to return to Main Menu."
-        ),
-        "options": {
-            "1": "general_source",
-            "2": "tatkal_ticket",
-            "0": "main"
-        }
-    },
+    "booking": (
+        "Ticket Booking Menu.\n"
+        "Press 1 for General Ticket.\n"
+        "Press 2 for Tatkal Ticket.\n"
+        "Press 0 to return to Main Menu."
+    ),
 
-    "tatkal_ticket": {
-        "prompt": "Tatkal booking is available via IRCTC website only.",
-        "options": {}
-    },
-
-    "agent": {
-        "prompt": "Connecting you to IRCTC Customer Care Executive.",
-        "options": {}
-    },
-
-"general_source": {
-    "prompt": (
+    "source": (
         "Select Source Station.\n"
         "Press 1 for Hyderabad Deccan.\n"
         "Press 2 for Chennai Central.\n"
@@ -91,21 +127,8 @@ MENUS = {
         "Press 8 for Vijayawada.\n"
         "Press 9 for Ahmedabad."
     ),
-    "options": {
-        "1": "general_destination",
-        "2": "general_destination",
-        "3": "general_destination",
-        "4": "general_destination",
-        "5": "general_destination",
-        "6": "general_destination",
-        "7": "general_destination",
-        "8": "general_destination",
-        "9": "general_destination"
-    }
-},
 
-"general_destination": {
-    "prompt": (
+    "destination": (
         "Select Destination Station.\n"
         "Press 1 for Hyderabad Deccan.\n"
         "Press 2 for Chennai Central.\n"
@@ -117,26 +140,23 @@ MENUS = {
         "Press 8 for Vijayawada.\n"
         "Press 9 for Ahmedabad."
     ),
-    "options": {
-        "1": "general_train_select",
-        "2": "general_train_select",
-        "3": "general_train_select",
-        "4": "general_train_select",
-        "5": "general_train_select",
-        "6": "general_train_select",
-        "7": "general_train_select",
-        "8": "general_train_select",
-        "9": "general_train_select"
-    }
-},
-    "booking_success": {"prompt": "Your ticket has been successfully booked.", "options": {}},
 
-    # PNR / Cancel / Schedule / Seat
-    "pnr": {"prompt": "Enter your 10-digit PNR number.", "options": {}},
-    "cancel": {"prompt": "Enter your Booking ID.", "options": {}},
-    "schedule": {"prompt": "Enter Train Number to check schedule.", "options": {}},
-    "availability_train": {"prompt": "Enter Train Number.", "options": {}},
-    "availability_date": {"prompt": "Enter Journey Date (YYYYMMDD).", "options": {}},
+    "date": (
+        "Select Journey Date.\n"
+        "Press 1 for Today.\n"
+        "Press 2 for Tomorrow.\n"
+        "Press 3 for Day After Tomorrow."
+    ),
+
+    "pnr": "Enter your 10-digit PNR number.",
+
+    "cancel": "Enter your Booking ID.",
+
+    "schedule": "Enter Train Number to check schedule.",
+
+    "availability_train": "Enter Train Number.",
+
+    "availability_date": "Enter Journey Date (YYYYMMDD)."
 }
 
 
@@ -145,17 +165,19 @@ MENUS = {
 # -------------------------
 @app.post("/ivr/start")
 def start_call(request: StartRequest):
-    session_id = f"SIM_{random.randint(100000, 999999)}"
+
+    session_id = f"SIM_{random.randint(100000,999999)}"
 
     sessions[session_id] = {
-        "current_menu": "main",
+        "intent": None,
+        "stage": "main",
         "data": {}
     }
 
     return {
         "session_id": session_id,
         "menu": "main",
-        "prompt": MENUS["main"]["prompt"]
+        "prompt": MENUS["main"]
     }
 
 
@@ -169,128 +191,114 @@ def handle_input(request: InputRequest):
         return {"error": "Invalid session"}
 
     session = sessions[request.session_id]
-    current_menu = session["current_menu"]
+    stage = session["stage"]
 
-    # =============================
-    # GENERAL BOOKING FLOW
-    # =============================
+    # -------------------------
+    # MAIN MENU
+    # -------------------------
+    if stage == "main":
 
-    if current_menu == "general_source":
-        session["data"]["source"] = request.digit
-        session["current_menu"] = "general_destination"
-        return {"menu": "general_destination", "prompt": MENUS["general_destination"]["prompt"]}
+        intent = detect_intent(request.digit)
+        session["intent"] = intent
 
-    if current_menu == "general_destination":
-        source = session["data"]["source"]
-        destination = request.digit
+        if intent == "book_ticket":
+            session["stage"] = "ticket_type"
+            return {"menu": "booking", "prompt": MENUS["booking"]}
 
-        FAKE_TRAIN_DB = {
-            ("101", "102"): ["1 - 12627 Karnataka Express", "2 - 12760 Charminar Express"]
-        }
+        if intent == "pnr_status":
+            session["stage"] = "pnr"
+            return {"menu": "pnr", "prompt": MENUS["pnr"]}
 
-        trains = FAKE_TRAIN_DB.get((source, destination))
+        if intent == "cancel_ticket":
+            session["stage"] = "cancel"
+            return {"menu": "cancel", "prompt": MENUS["cancel"]}
 
-        if not trains:
+        if intent == "train_schedule":
+            session["stage"] = "schedule"
+            return {"menu": "schedule", "prompt": MENUS["schedule"]}
+
+        if intent == "seat_availability":
+            session["stage"] = "availability_train"
+            return {"menu": "availability_train", "prompt": MENUS["availability_train"]}
+
+        if intent == "agent":
             del sessions[request.session_id]
-            return {"action": "hangup", "message": "No trains available for selected route."}
+            return {"action": "hangup", "message": "Connecting you to IRCTC Customer Care Executive."}
+
+    # -------------------------
+    # BOOKING FLOW
+    # -------------------------
+    if stage == "ticket_type":
+
+        if request.digit == "1":
+            session["stage"] = "source"
+            return {"menu": "source", "prompt": MENUS["source"]}
+
+        if request.digit == "2":
+            del sessions[request.session_id]
+            return {"action": "hangup", "message": "Tatkal booking available via IRCTC website only."}
+
+    if stage == "source":
+
+        session["data"]["source"] = request.digit
+        session["stage"] = "destination"
+
+        return {"menu": "destination", "prompt": MENUS["destination"]}
+
+    if stage == "destination":
+
+        session["data"]["destination"] = request.digit
+        session["stage"] = "date"
+
+        return {"menu": "date", "prompt": MENUS["date"]}
+
+    if stage == "date":
+
+        option = request.digit
+        today = datetime.today()
+
+        if option == "1":
+            journey_date = today
+        elif option == "2":
+            journey_date = today + timedelta(days=1)
+        elif option == "3":
+            journey_date = today + timedelta(days=2)
+        else:
+            return {"error": "Invalid date option"}
+
+        session["data"]["date"] = journey_date.strftime("%Y%m%d")
+
+        trains = get_available_trains(
+            session["data"]["source"],
+            session["data"]["destination"],
+            session["data"]["date"]
+        )
 
         session["data"]["trains"] = trains
-        session["current_menu"] = "general_train_select"
+        session["stage"] = "train_select"
 
         train_list = "\n".join(trains)
+
         return {
-            "menu": "general_train_select",
+            "menu": "train_select",
             "prompt": f"Available Trains:\n{train_list}\nSelect train number."
         }
 
-    if current_menu == "general_train_select":
-        session["data"]["selected_train"] = request.digit
-        session["current_menu"] = "general_date"
-        return {"menu": "general_date", "prompt": MENUS["general_date"]["prompt"]}
+    if stage == "train_select":
 
-    if current_menu == "general_date":
-        session["data"]["date"] = request.digit
-        session["current_menu"] = "general_confirm"
-        return {"menu": "general_confirm", "prompt": MENUS["general_confirm"]["prompt"]}
+        trains = session["data"]["trains"]
+        index = int(request.digit) - 1
 
-    # =============================
-    # PNR STATUS
-    # =============================
-    if current_menu == "pnr":
-        FAKE_PNR_DB = {
-            "1234567890": "Confirmed - Coach S3 Seat 45",
-            "9876543210": "Waiting List - WL 12"
-        }
-        status = FAKE_PNR_DB.get(request.digit, "Invalid PNR Number.")
+        if index >= len(trains):
+            return {"error": "Invalid train selection"}
+
+        selected_train = trains[index]
+
         del sessions[request.session_id]
-        return {"action": "hangup", "message": f"PNR Status:\n{status}"}
 
-    # =============================
-    # CANCEL TICKET
-    # =============================
-    if current_menu == "cancel":
-        FAKE_BOOKING_DB = {"5555": True, "9999": True}
-        if request.digit in FAKE_BOOKING_DB:
-            message = "Your ticket has been successfully cancelled."
-        else:
-            message = "Invalid Booking ID."
-        del sessions[request.session_id]
-        return {"action": "hangup", "message": message}
-
-    # =============================
-    # TRAIN SCHEDULE
-    # =============================
-    if current_menu == "schedule":
-        FAKE_SCHEDULE_DB = {
-            "12627": "Departs 06:00 AM - Arrives 06:30 PM",
-            "12760": "Departs 05:00 PM - Arrives 07:00 AM"
-        }
-        schedule = FAKE_SCHEDULE_DB.get(request.digit, "Train not found.")
-        del sessions[request.session_id]
-        return {"action": "hangup", "message": f"Train Schedule:\n{schedule}"}
-
-    # =============================
-    # SEAT AVAILABILITY
-    # =============================
-    if current_menu == "availability_train":
-        session["data"]["train"] = request.digit
-        session["current_menu"] = "availability_date"
-        return {"menu": "availability_date", "prompt": MENUS["availability_date"]["prompt"]}
-
-    if current_menu == "availability_date":
-        train = session["data"]["train"]
-
-        FAKE_SEAT_DB = {
-            "12627": {"20240615": 45, "20240616": 12},
-            "12760": {"20240615": 0}
+        return {
+            "action": "hangup",
+            "message": f"Your ticket for {selected_train} has been booked successfully."
         }
 
-        seats = FAKE_SEAT_DB.get(train, {}).get(request.digit)
-
-        if seats is None:
-            message = "No data available."
-        elif seats == 0:
-            message = "Seats are full. Waiting list applies."
-        else:
-            message = f"{seats} seats are available."
-
-        del sessions[request.session_id]
-        return {"action": "hangup", "message": message}
-
-    # =============================
-    # NORMAL MENU NAVIGATION
-    # =============================
-    options = MENUS[current_menu]["options"]
-
-    if request.digit in options:
-        next_menu = options[request.digit]
-        session["current_menu"] = next_menu
-
-        if MENUS[next_menu]["options"] == {}:
-            message = MENUS[next_menu]["prompt"]
-            del sessions[request.session_id]
-            return {"action": "hangup", "message": message}
-
-        return {"menu": next_menu, "prompt": MENUS[next_menu]["prompt"]}
-
-    return {"error": "Invalid input. Please try again."}
+    return {"error": "Invalid input"}
