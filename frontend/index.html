@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -11,48 +10,40 @@
 
 <div class="phone-container">
 
-```
-<!-- PHONE SCREEN -->
-<div class="phone-screen" id="display">
-    <p class="system-msg">Press "Start Call" to begin</p>
-</div>
+    <div class="phone-screen" id="display">
+        <p class="system-msg">Press "Start Call" to begin</p>
+    </div>
 
-<!-- NEW CONVERSATIONAL INPUT (Milestone 3) -->
-<div class="chat-input">
-    <input 
-        type="text" 
-        id="userText" 
-        placeholder="Type your request (e.g., Check PNR status, Book ticket)">
-    <button id="sendText">Send</button>
-</div>
+    <div class="chat-input">
+        <input type="text" id="userText" placeholder="Type your request (e.g., Book ticket)">
+        <button id="sendText">Send</button>
+    </div>
 
-<!-- KEYPAD (Milestone 2 functionality remains) -->
-<div class="keypad">
-    <button class="key" data-digit="1">1</button>
-    <button class="key" data-digit="2">2</button>
-    <button class="key" data-digit="3">3</button>
-    <button class="key" data-digit="4">4</button>
-    <button class="key" data-digit="5">5</button>
-    <button class="key" data-digit="6">6</button>
-    <button class="key" data-digit="7">7</button>
-    <button class="key" data-digit="8">8</button>
-    <button class="key" data-digit="9">9</button>
-    <button class="key" data-digit="*">*</button>
-    <button class="key" data-digit="0">0</button>
-    <button class="key" data-digit="#">#</button>
-    <button id="submitInput">Submit</button>
-</div>
+    <div class="keypad">
+        <button class="key" data-digit="1">1</button>
+        <button class="key" data-digit="2">2</button>
+        <button class="key" data-digit="3">3</button>
+        <button class="key" data-digit="4">4</button>
+        <button class="key" data-digit="5">5</button>
+        <button class="key" data-digit="6">6</button>
+        <button class="key" data-digit="7">7</button>
+        <button class="key" data-digit="8">8</button>
+        <button class="key" data-digit="9">9</button>
+        <button class="key" data-digit="*">*</button>
+        <button class="key" data-digit="0">0</button>
+        <button class="key" data-digit="#">#</button>
+        <button id="submitInput">Submit</button>
+    </div>
 
-<!-- CALL CONTROLS -->
-<div class="controls">
-    <button id="startCall" class="call-btn">📞 Start Call</button>
-    <button id="hangupCall" class="hangup-btn">📵 Hang Up</button>
-</div>
-```
+    <div class="controls">
+        <button id="startCall">📞 Start Call</button>
+        <button id="hangupCall">📵 Hang Up</button>
+        <button id="voiceInput">🎤 Speak</button>
+    </div>
 
 </div>
 
+<!-- LINK TO SEPARATE JS -->
 <script src="script.js"></script>
-
 </body>
 </html>

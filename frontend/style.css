@@ -107,12 +107,11 @@ border: none;
 cursor: pointer;
 margin-right: 10px;
 }
-
 .hangup-btn {
-    background: #dc3545;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 20px;
-    border: none;
-    cursor: pointer;
+  background: #dc3545;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 20px;
+  border: none;
+  cursor: pointer;
 }

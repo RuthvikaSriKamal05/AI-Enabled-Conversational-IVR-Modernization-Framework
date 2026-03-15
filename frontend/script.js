@@ -1,243 +1,179 @@
 const API_URL = "http://127.0.0.1:8000";
 
 let sessionId = null;
-let currentMenu = null;
 let callActive = false;
-let isInputMode = false;
+let conversationState = 0;
 let inputBuffer = "";
+let isInputMode = false;
 
 const display = document.getElementById("display");
 
-
 // =======================
-// DISPLAY MESSAGES
+// DISPLAY + TTS
 // =======================
-function addMessage(text, type = "system") {
-
+function addMessage(text, type = "system", speak = true) {
     const p = document.createElement("p");
-
     p.innerHTML = text.replace(/\n/g, "<br>");
     p.className = type === "system" ? "system-msg" : "user-msg";
-
     display.appendChild(p);
     display.scrollTop = display.scrollHeight;
+    if (speak && type === "system") speakText(text);
 }
 
-
+function speakText(text, voiceName = "Google UK English Female") {
+    const utterance = new SpeechSynthesisUtterance(text);
+    const voices = window.speechSynthesis.getVoices();
+    utterance.voice = voices.find(v => v.name === voiceName) || voices[0];
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    window.speechSynthesis.speak(utterance);
+}
 
 // =======================
 // START CALL
 // =======================
 document.getElementById("startCall").addEventListener("click", async () => {
-
     if (callActive) return;
-
     try {
-
-        const response = await fetch(`${API_URL}/ivr/start`, {
+        const res = await fetch(`${API_URL}/ivr/start`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ caller_number: "WebSimulator" })
         });
-
-        const data = await response.json();
-
+        const data = await res.json();
         sessionId = data.session_id;
-        currentMenu = data.menu;
         callActive = true;
-
+        conversationState = 0;
         addMessage("📞 Call Started");
-        addMessage(data.prompt);
-
-    } catch (err) {
-
-        addMessage("⚠️ Backend not running.");
+        addMessage("Hello! How can I help you today?");
+    } catch {
+        addMessage("⚠️ Backend not running.", "system", false);
     }
 });
 
-
-
 // =======================
-// SEND INPUT TO BACKEND
+// SEND INPUT (Unified for text, voice, digit)
 // =======================
-async function sendToBackend(value) {
-
+async function handleInput(value, isDigit = false) {
+    if (!callActive) return;
     try {
-
-        const response = await fetch(`${API_URL}/ivr/input`, {
-
+        const res = await fetch(`${API_URL}/ivr/input`, {
             method: "POST",
-
             headers: { "Content-Type": "application/json" },
-
-            body: JSON.stringify({
-                session_id: sessionId,
-                digit: value
-            })
+            body: JSON.stringify({ session_id: sessionId, value, state: conversationState, isDigit })
         });
+        const data = await res.json();
+        if (data.error) return addMessage(data.error, "system", false);
 
-        const data = await response.json();
+        addMessage(data.reply);
+        conversationState = data.nextState || conversationState;
 
-        console.log(data);
-
-        if (data.error) {
-            addMessage(data.error);
-            return;
-        }
-
-        if (data.action === "hangup") {
-            addMessage(data.message);
-            endCall();
-            return;
-        }
-
-        currentMenu = data.menu;
-
-        if (["pnr", "cancel", "schedule",
-            "availability_train",
-            "availability_date",
-            "general_date"].includes(currentMenu)) {
-
-            isInputMode = true;
-            inputBuffer = "";
-
-        } else {
-
-            isInputMode = false;
-        }
-
-        addMessage(data.prompt);
-
-    } catch (error) {
-
-        addMessage("⚠️ Server error.");
-        console.error(error);
+        if (data.action === "hangup") endCall();
+    } catch {
+        addMessage("⚠️ Server error.", "system", false);
     }
 }
 
-
-
 // =======================
-// KEYPAD LOGIC
+// INPUT HANDLERS
 // =======================
-document.querySelectorAll(".key").forEach(button => {
 
-    button.addEventListener("click", function () {
-
+// Keypad
+document.querySelectorAll(".key").forEach(btn =>
+    btn.addEventListener("click", () => {
         if (!callActive) return;
-
-        const digit = this.getAttribute("data-digit");
-
-        addMessage(`You pressed: ${digit}`, "user");
-
+        const digit = btn.getAttribute("data-digit");
+        addMessage(`You pressed: ${digit}`, "user", false);
         if (isInputMode) {
-
             inputBuffer += digit;
-            addMessage("Entered: " + inputBuffer);
+            addMessage("Entered: " + inputBuffer, "user", false);
+        } else handleInput(digit, true);
+    })
+);
 
-        } else {
-
-            sendToBackend(digit);
-        }
-    });
-});
-
-
-
-// =======================
-// SUBMIT KEYPAD INPUT
-// =======================
-document.getElementById("submitInput").addEventListener("click", function () {
-
+// Submit keypad
+document.getElementById("submitInput").addEventListener("click", () => {
     if (!callActive || !isInputMode || inputBuffer === "") return;
-
-    sendToBackend(inputBuffer);
-
+    handleInput(inputBuffer, true);
     inputBuffer = "";
     isInputMode = false;
 });
 
-
-
-// =======================
-// MILESTONE 3 FEATURE
-// CONVERSATIONAL TEXT INPUT
-// =======================
-
-document.getElementById("sendText").addEventListener("click", function () {
-
-    if (!callActive) {
-        addMessage("Start call first.");
-        return;
-    }
-
-    const inputBox = document.getElementById("userText");
-    const text = inputBox.value.trim();
-
-    if (text === "") return;
-
-    addMessage("You: " + text, "user");
-
+// Text input
+document.getElementById("sendText").addEventListener("click", () => {
+    if (!callActive) return addMessage("Start call first.", "system", false);
+    const text = document.getElementById("userText").value.trim();
+    if (!text) return;
+    addMessage("You: " + text, "user", false);
     const intent = detectIntent(text);
-
-    if (intent === "unknown") {
-
-        addMessage("❓ Sorry, I didn't understand. Try saying: Book ticket, Check PNR, Cancel ticket.");
-
-    } else {
-
-        sendToBackend(intent);
-    }
-
-    inputBox.value = "";
+    if (intent === "unknown") addMessage("❓ Sorry, I didn't understand. Try: Book ticket, Check PNR, Cancel ticket.", "system", false);
+    else handleInput(intent);
+    document.getElementById("userText").value = "";
 });
 
+// Voice input
+document.getElementById("voiceInput").addEventListener("click", () => {
+    if (!callActive) return addMessage("Start call first.", "system", false);
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    addMessage("🎤 Listening...", "system", false);
 
+    recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript;
+        addMessage("You said: " + text, "user", false);
+        const intent = detectIntent(text);
+        if (intent === "unknown") addMessage("❓ Could not understand command.", "system", false);
+        else handleInput(intent);
+    };
+    recognition.onerror = () => addMessage("⚠️ Voice recognition error.", "system", false);
+    recognition.start();
+});
 
 // =======================
-// INTENT DETECTION
+// INTENT DETECTION (optimized)
 // =======================
+const intentMap = {
+    book: "book_ticket",
+    pnr: "check_pnr",
+    status: "check_pnr",
+    cancel: "cancel_ticket",
+    schedule: "train_schedule",
+    seat: "check_seat",
+    availability: "check_seat",
+    general: "general_ticket",
+    tatkal: "tatkal_ticket",
+    hyderabad: "1",
+    chennai: "2",
+    delhi: "3",
+    mumbai: "4",
+    howrah: "5",
+    bengaluru: "6",
+    bangalore: "6",
+    secunderabad: "7",
+    vijayawada: "8",
+    ahmedabad: "9",
+    today: "today",
+    tomorrow: "tomorrow",
+    "day after": "day_after"
+};
+
 function detectIntent(text) {
-
     text = text.toLowerCase();
-
-    if (text.includes("book"))
-        return "1";
-
-    if (text.includes("pnr") || text.includes("status"))
-        return "2";
-
-    if (text.includes("cancel"))
-        return "3";
-
-    if (text.includes("schedule"))
-        return "4";
-
-    if (text.includes("seat") || text.includes("availability"))
-        return "5";
-
+    for (const key in intentMap) if (text.includes(key)) return intentMap[key];
     return "unknown";
 }
-
-
 
 // =======================
 // END CALL
 // =======================
 function endCall() {
-
     callActive = false;
     sessionId = null;
-    currentMenu = null;
-    isInputMode = false;
     inputBuffer = "";
-
+    isInputMode = false;
+    conversationState = 0;
     addMessage("--- Call Ended ---");
 }
 
-
-
-document.getElementById("hangupCall").addEventListener("click", () => {
-
-    if (callActive) endCall();
-});
+document.getElementById("hangupCall").addEventListener("click", () => { if (callActive) endCall(); });

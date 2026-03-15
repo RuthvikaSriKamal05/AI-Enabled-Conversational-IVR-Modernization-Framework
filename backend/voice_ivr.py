@@ -1,126 +1,85 @@
 import speech_recognition as sr
 import requests
 
-# Backend URL
 API_URL = "http://localhost:8000"
 
 # -------------------------
 # SPEECH TO TEXT
 # -------------------------
 def listen_voice():
-
     recognizer = sr.Recognizer()
-
     with sr.Microphone() as source:
-        print("🎤 Adjusting noise...")
+        print("🎤 Listening...")
         recognizer.adjust_for_ambient_noise(source, duration=1)
-
-        print("🎤 Speak your request...")
         audio = recognizer.listen(source, timeout=5, phrase_time_limit=4)
 
     try:
         text = recognizer.recognize_google(audio)
         print("You said:", text)
         return text.lower()
-
     except:
-        print("Could not understand voice")
+        print("❌ Could not understand voice")
         return ""
 
-
 # -------------------------
-# INTENT DETECTION
+# MAP TEXT TO DIGIT
 # -------------------------
-def detect_intent(text):
-
-    if "1" in text or "one" in text or "book" in text or "ticket" in text or "general" in text or "tatkal" in text:
+def map_text_to_digit(text):
+    if any(word in text for word in ["book", "ticket", "general", "tatkal"]):
         return "1"
-
-    if "2" in text or "two" in text or "pnr" in text:
+    if "pnr" in text:
         return "2"
-
-    if "3" in text or "three" in text or "cancel" in text:
+    if "cancel" in text:
         return "3"
-
-    if "4" in text or "four" in text or "schedule" in text or "train" in text:
+    if any(word in text for word in ["schedule", "train"]):
         return "4"
-
-    if "5" in text or "five" in text or "seat" in text or "availability" in text:
+    if any(word in text for word in ["seat", "availability"]):
         return "5"
-
-    if "9" in text or "nine" in text or "customer care" in text or "agent" in text:
+    if any(word in text for word in ["agent", "customer care"]):
         return "9"
-
+    if text in ["1","2","3","4"]:
+        return text
     return None
 
-
 # -------------------------
-# START IVR CALL
+# START CALL
 # -------------------------
 def start_call():
-
-    response = requests.post(
-        f"{API_URL}/ivr/start",
-        json={"caller_number": "9999999999"}
-    )
-
+    response = requests.post(f"{API_URL}/ivr/start", json={"caller_number": "9999999999"})
     data = response.json()
-
     print("\n📞 Call Started")
     print(data["prompt"])
-
     return data["session_id"]
-
 
 # -------------------------
 # SEND INPUT
 # -------------------------
-def send_digit(session_id, user_input):
-
-    response = requests.post(
-        f"{API_URL}/ivr/input",
-        json={
-            "session_id": session_id,
-            "digit": user_input
-        }
-    )
-
+def send_input(session_id, digit):
+    response = requests.post(f"{API_URL}/ivr/input", json={"session_id": session_id, "value": digit, "isDigit": True})
     data = response.json()
-
-    if "prompt" in data:
-        print("\n", data["prompt"])
-
-    if "message" in data:
-        print("\n", data["message"])
+    print("\n" + data["prompt"])
+    return data
 
 # -------------------------
-# MAIN PROGRAM
+# MAIN LOOP
 # -------------------------
 def run_voice_ivr():
-
     session_id = start_call()
 
-    first_menu = True
-
     while True:
-
         text = listen_voice()
+        if not text:
+            continue
 
-        if first_menu:
-            digit = detect_intent(text)
+        digit = map_text_to_digit(text)
+        if not digit:
+            print("❌ Could not detect intent. Try again...")
+            continue
 
-            if digit is None:
-                print("Try again...")
-                continue
+        resp = send_input(session_id, digit)
+        if "successfully" in resp.get("prompt",""):
+            print("✅ Booking completed!")
+            break
 
-            send_digit(session_id, digit)
-            first_menu = False
-
-        else:
-            # send voice text directly to backend
-            send_digit(session_id, text)
-# -------------------------
-# RUN
-# -------------------------
 if __name__ == "__main__":
     run_voice_ivr()
