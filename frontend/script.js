@@ -296,6 +296,8 @@ function startVoiceInput(retryCount = 0) {
     addMessage("🎤 Listening… speak now", "system", false);
 
     recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+         console.log("Heard:", transcript);
         const alternatives = Array.from(event.results[0]).map(r => r.transcript.trim());
         const best = alternatives[0];
 
@@ -339,7 +341,7 @@ function startVoiceInput(retryCount = 0) {
             }
             return;
         }
-
+h;
         if ((e.error === "no-speech") && retryCount < 2) {
             addMessage(`⚠️ No speech heard. Retrying… (${retryCount + 1}/2)`, "system", false);
             setTimeout(() => startVoiceInput(retryCount + 1), 600);
